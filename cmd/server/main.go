@@ -7,6 +7,7 @@ import (
     amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 )
 
 
@@ -24,9 +25,26 @@ func main() {
 		return
 	}
 
-	err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{true})
-
 	fmt.Println("Starting Peril server...")
+
+	gamelogic.PrintServerHelp()
+
+	for{
+		input := gamelogic.GetInput()
+		if len(input) == 0{
+			continue
+		}
+
+		if input[0] == "pause"{
+			err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{true})
+		}else if input[0] == "resume"{
+			err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{false})
+		}else if(input[0] == "quit"){
+			break
+		}else{
+			fmt.Println("invalid command")
+		}
+	}
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)

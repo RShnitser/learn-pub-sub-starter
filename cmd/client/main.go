@@ -40,6 +40,42 @@ func main() {
 
 	fmt.Println("Starting Peril client...")
 
+	state := gamelogic.NewGameState(name)
+
+	for{
+		input := gamelogic.GetInput()
+		if len(input) == 0{
+			continue
+		}
+
+		switch input[0]{
+			case "spawn":
+				err = state.CommandSpawn(input)
+				if(err != nil){
+					fmt.Println(err)
+				}
+			
+			case "move":
+				_, err = state.CommandMove(input)
+				if(err != nil){
+					fmt.Println(err)
+				}else{
+					fmt.Println("move successful")
+				}
+			case "status":
+				state.CommandStatus()
+			case "help":
+				gamelogic.PrintClientHelp()
+			case "spam":
+				fmt.Println("not allowed")
+			case "quit":
+				gamelogic.PrintQuit()
+				break
+			default:
+				fmt.Println("invalid command")
+		}
+	}
+
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 	<-signalChan

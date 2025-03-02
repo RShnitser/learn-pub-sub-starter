@@ -25,6 +25,12 @@ func main() {
 		return
 	}
 
+	_, _, err = pubsub.DeclareAndBind(connection, "peril_topic", "game_logs", "game_logs.*", 0)
+	if(err != nil){
+		fmt.Println("bind error")
+		return
+	}
+
 	fmt.Println("Starting Peril server...")
 
 	gamelogic.PrintServerHelp()

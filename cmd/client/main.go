@@ -9,6 +9,26 @@ import (
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 )
+
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState)pubsub.Acktype{
+	return func(ps routing.PlayingState)pubsub.Acktype{
+		defer fmt.Print("> ")
+		gs.HandlePause(ps)
+		return pubsub.AcktypeAck
+	}
+}
+
+func handlerMove(gs *gamelogic.GameState) func(gamelogic.ArmyMove)pubsub.Acktype {
+	return func(move gamelogic.ArmyMove)pubsub.Acktype {
+		defer fmt.Print("> ")
+		outcome := gs.HandleMove(move)
+		if outcome == gamelogic.MoveOutComeSafe || outcome == gamelogic.MoveOutcomeMakeWar{
+			return pubsub.AcktypeAck
+		}else{
+			return pubsub.AcktypeNackDiscard
+		}
+	}
+}
 	
 
 func main() {
@@ -36,11 +56,29 @@ func main() {
 		return
 	}
 
-	//err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{true})
+	armyName := fmt.Sprintf("%s.%s", "army_moves", name)
+	armyChannel, _, err := pubsub.DeclareAndBind(connection, routing.ExchangePerilTopic, armyName, "army_moves.*", 1)
+	if(err != nil){
+		fmt.Printf("declare and bind err %s\n", err)
+		return
+	}
 
 	fmt.Println("Starting Peril client...")
 
 	state := gamelogic.NewGameState(name)
+
+	
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilDirect, queueName, routing.PauseKey, 1, handlerPause(state))
+	if(err != nil){
+		fmt.Printf("subscribe error", err)
+		return
+	}
+
+	err = pubsub.SubscribeJSON(connection, routing.ExchangePerilTopic, armyName, "army_moves.*", 1, handlerMove(state))
+	if(err != nil){
+		fmt.Printf("subscribe error", err)
+		return
+	}
 
 	for{
 		input := gamelogic.GetInput()
@@ -56,11 +94,16 @@ func main() {
 				}
 			
 			case "move":
-				_, err = state.CommandMove(input)
+				move, err := state.CommandMove(input)
 				if(err != nil){
 					fmt.Println(err)
 				}else{
-					fmt.Println("move successful")
+					err = pubsub.PublishJSON(armyChannel, routing.ExchangePerilTopic, armyName, move)
+					if(err != nil){
+						fmt.Println(err)
+					}else{	
+							fmt.Println("move successful")
+					}
 				}
 			case "status":
 				state.CommandStatus()
